@@ -1,0 +1,2 @@
+# MaquinaEstadosSE
+Puertas automaticas
