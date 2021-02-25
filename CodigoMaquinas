@@ -1,0 +1,128 @@
+*
+ * MaquinaEstadosSemaforo.c
+ *
+ * Created: 24/11/2020 0:46:38
+ * Author : Ronald-2020
+ */ 
+#define F_CPU 16000000
+#include <avr/io.h>
+#include <util/delay.h>
+
+#define set_bit(reg, bit) (reg |= (1<<bit))
+#define rst_bit(reg, bit) reg &= ~(1<<bit)
+#define le_bit(reg, bit) ((reg >> bit)& 0x01)
+#define comp_bit(reg, bit) (reg ^= (1<<bit))
+
+#define SALIDAS_CONFIG DDRD
+
+#define SALIDAS PORTD
+#define S0 PD0
+#define S1 PD1
+
+
+#define ENTRADAS_CONFIG DDRB
+
+#define ENTRADAS PINB
+#define SP0 PB0
+#define TA1 PB1
+#define TC2 PB2
+
+
+
+typedef enum State_e
+{
+	State_Config,
+	State_Cerrado,
+	State_Abriendo,
+	State_Cerrando,
+	State_Abierto,
+
+}State_t;
+
+void hwconfig(void);
+uint8_t VSP,VTA,VTC;
+static State_t EstadoActual=State_Config;
+
+void hwconfig(void)
+{
+	set_bit(SALIDAS_CONFIG,S0);
+	set_bit(SALIDAS_CONFIG,S1);
+	rst_bit(ENTRADAS_CONFIG,SP0);
+	rst_bit(ENTRADAS_CONFIG,TA1);
+	rst_bit(ENTRADAS_CONFIG,TC2);
+	//DDRB=0b00000000;
+	//DDRD=0b00000011;
+}
+
+int main(void)
+{
+    /* Replace with your application code */
+    while (1) 
+    {
+		VSP=le_bit(ENTRADAS,SP0);
+		VTA=le_bit(ENTRADAS,TA1);
+		VTC=le_bit(ENTRADAS,TC2);
+		//VSP=((PINB >> 0)& 0x01);
+		//VTA=((PINB >> 1)& 0x01);
+		//VTC=((PINB >> 2)& 0x01);
+		switch(EstadoActual)
+		{
+			case State_Config:
+				hwconfig();
+				EstadoActual=State_Cerrado;
+			break;
+			case State_Cerrado:
+				rst_bit(SALIDAS,S0);
+				rst_bit(SALIDAS,S1);
+				//PORTD=0b00;
+				
+				if(VSP==1){
+					EstadoActual=State_Abriendo;	
+				}
+				else{
+					EstadoActual=State_Cerrado;
+				}	
+			break;
+			case State_Abriendo:
+				set_bit(SALIDAS,S0);
+				rst_bit(SALIDAS,S1);
+				//PORTD=0b01;
+				if(VSP==0){
+					EstadoActual=State_Cerrando;
+				}
+				if(VTA==1){
+					EstadoActual=State_Abierto;
+				}
+				if(VSP==1 && VTA==0){
+					EstadoActual=State_Abriendo;
+				}
+			break;
+			case State_Cerrando:
+				rst_bit(SALIDAS,S0);
+				set_bit(SALIDAS,S1);
+				//PORTD=0b10;
+				if(VSP==1){
+					EstadoActual=State_Abriendo;
+				}
+				if(VTC==1){
+					EstadoActual=State_Cerrado;
+				}
+				if(VSP==0 && VTC==0){
+					EstadoActual=State_Cerrando;
+				}
+			break;
+			case State_Abierto:
+				rst_bit(SALIDAS,S0);
+				rst_bit(SALIDAS,S1);
+				//PORTD=0b00;
+				if(VSP==1){
+					EstadoActual=State_Abierto;
+				}
+				else{
+					EstadoActual=State_Cerrando;
+				}
+			break;
+			
+		}
+    }
+}
